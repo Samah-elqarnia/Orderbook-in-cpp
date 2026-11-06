@@ -1,7 +1,7 @@
 
+#pragma once
 
-#pragma once 
-#include "LevelInfos"
+#include "LevelInfo.h"
 
 
 class OrderbookLevelInfos{ 
@@ -10,7 +10,6 @@ public:
      : bids_(bids)
      , asks_(asks) 
      {}
-    
      const LevelInfos& GetBids() const { return bids_; }
      const LevelInfos& GetAsks() const { return asks_; }
 
