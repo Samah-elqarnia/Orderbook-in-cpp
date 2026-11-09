@@ -92,9 +92,25 @@ Trades Orderbook::MatchOrders( )
 
 Trades Orderbook::AddOrder(OrderPointer order)
    {
+    
     if (orders_.contains(order->GetOrderId()))
         return { };
 
+    if (orders->GetOrderType() == OrderType::Market)
+    {
+        if(order->GetSide()==Side::Buy && !asks_.empty())
+        {
+            const auto& [worstAsk, _]= *asks_.rbegin();
+            order->ToGoodTillCancel(worstAsk);
+        }
+
+
+        if(order->GetSide()==Side::Sell && !bids_.empty())
+        {
+            const auto& [worstBid, _]= *bids_.rbegin();
+            order->ToGoodTillCancel(worstBid);
+        }
+    }    
     if (order -> GetOrderType()== OrderType:: FillAndKill && !CanMatch(order->GetSide(), order->GetPrice()))
         return { };    
 
