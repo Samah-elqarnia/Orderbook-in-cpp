@@ -52,11 +52,26 @@ private:
        void CancelOrders(OrderIds orderIds);
        void CancelOrderInternal(OrderId orderId);
 
+       void OnOrderCancelled(OrderPointer order);
+       void OnOrderAdded(OrderPointer order);
+       void OnOrderMatched(Price price, Quantity quantity, bool isFullyFilled);
+       void UpdateLevelData(Price price, Quantity quantity, LevelData::Action action);
+
+       bool CanFullyFill(Side side, Price price, Quantity quantity) const;
        bool CanMatch(Side side, Price price) const;
        // actual match : we got orders in  the orderbook that we need to resolve , start with best bids and asks and creates trade
        Trades MatchOrders(); 
 
 public:
+       
+       Orderbook();
+       Orderbook(const Orderbook&)= delete;
+       void operator=(const Orderbook&) = delete;
+       Orderbook(Orderbook&&)= delete;
+       void operator=(Orderbook&&)=delete;
+       ~Orderbook();
+
+
 
        Trades AddOrder(OrderPointer order);
        void CancelOrder(OrderId orderId);

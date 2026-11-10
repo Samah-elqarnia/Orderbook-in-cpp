@@ -99,6 +99,65 @@ void Orderbook::OnOrderCancelled(OrderPointer order)
 	UpdateLevelData(order->GetPrice(), order->GetRemainingQuantity(), LevelData::Action::Remove);
 }
 
+void Orderbook::OnOrderAdded(OrderPointer order)
+{
+    UpdateLevelData(order->GetPrice(), order->GetInitialQuantity(), LevelData::Action::Add);
+}
+
+void Orderbook::OnOrderMatched(Price price, Quantity quantity, bool isfullyfilled)
+{
+    UpdateLevelData(price, quantity, isFullyFilled ? LevelData::Action::Remove : LevelData::Action::Match);
+}
+
+void Orderbook::UpdateLevelData(Price price, Quantity quantity, LevelData::Action action)
+{
+    auto& data = data_[price];
+
+    data.count_ += action == LevelData::Action::Remove ? -1 : action == LevelData::Action::Add ? 1 : 0 ;
+    if (action==LevelData::Action::Remove || action == LevelData::Action::Match )
+    {
+        data.quantity_ -= quantity;
+    }
+    else{
+        data.quantity_ += quantity;
+    }
+    if (data.count_ == 0)
+        data_.erase(price);
+}
+
+
+bool Orderbook::CanFullyFill(Side side , Price price, Quantity quantity) const {
+    if(!CanMatch(side, price))
+       return false;
+
+    std::optional<Price> threshold;
+    
+    if (side == Side::Buy)
+    {
+        const auto [askPrice,_]= *asks_.begin();
+        threshold = askPrice;
+    }
+    else{
+        const auto [bidPrice, _] = *bids_.begin();
+        threshold= bidPrice;
+    }
+
+    for(const auto& [levelPrice,levelData] : data_)
+    {
+        if(threshold.has-value()&&
+           (side == Side::Buy && threshold.value() > levelPrice)||
+           (side == Side::Sell && threshold.value()< levelPrice) 
+        )
+          continue;
+        
+        if(quantity <= levelData.quantity_)
+          return true;
+        
+        quantity -= levelData.quantity_;
+    }
+
+    return false;
+}
 
 bool Orderbook::CanMatch(Side side, Price price) const 
        {
@@ -134,7 +193,7 @@ Trades Orderbook::MatchOrders( )
                break;
 
 
-            while (bids.size() && asks.size()){
+            while (bids.empty() && asks.empty()){
                 auto& bid= bids.front();
                 auto& ask = asks.front();
 
@@ -181,6 +240,18 @@ Trades Orderbook::MatchOrders( )
 
         return trades;
        }
+
+
+
+Orderbook::Orderbook() : ordersPrunethread_ {  [this] { PruneGoodForDayOrders(); }} { }
+
+Orderbook::~Orderbook()
+{
+  shutdown_.store(true, std::memory_order_release);
+  shutdownConditionVariable_.notify_one();
+  ordersPruneThread_.join();
+}
+
 
 
 Trades Orderbook::AddOrder(OrderPointer order)
